@@ -1,0 +1,128 @@
+blueprint:
+  name: Varning för VVS
+  description: >-
+    Varnar varje timme via högtalare och mobilnotis om vatten upptäcks samt
+    skickar notis om sensorn inte kan nås.
+  domain: automation
+  input:
+    sensor:
+      name: Vattenläckagesensor
+      description: Välj vattenläckagesensorn som ska övervakas.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: moisture
+    media_player:
+      name: Högtalare
+      description: Välj högtalaren som ska användas för varningen.
+      selector:
+        entity:
+          domain: media_player
+    notify_device:
+      name: Notisenhet
+      description: Välj enheten som ska ta emot mobilnotiser.
+      selector:
+        device:
+    repeat_count:
+      name: Upprepningsantal
+      description: Antal gånger varningarna ska upprepas.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 10
+          unit_of_measurement: gånger
+    media_content_id:
+      name: Media Content ID
+      description: URL till mediefilen som ska spelas.
+      default: http://192.168.1.166:8123/local/imperial-alert.mp3
+      selector:
+        text:
+    volume_level:
+      name: Volymnivå
+      description: Volymnivå för varningen.
+      default: 0.5
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.1
+          unit_of_measurement: nivå
+
+trigger:
+  - platform: time_pattern
+    hours: /1
+
+condition:
+  - condition: state
+    entity_id: !input sensor
+    state: "on"
+
+action:
+  - repeat:
+      while:
+        - condition: state
+          entity_id: !input sensor
+          state: "on"
+        - condition: template
+          value_template: "{{ repeat.index <= !input repeat_count }}"
+      sequence:
+        - service: media_player.volume_set
+          data:
+            entity_id: !input media_player
+            volume_level: !input volume_level
+        - service: media_player.play_media
+          data:
+            entity_id: !input media_player
+            media_content_id: !input media_content_id
+            media_content_type: music
+        - delay: "00:00:10"
+        - service: tts.google_translate_say
+          data:
+            entity_id: !input media_player
+            message: "Varning! Det är vatten upptäckt vid {{ state_attr('!input sensor', 'friendly_name') }}"
+            language: sv
+        - service: notify.mobile_app
+          data:
+            target: !input notify_device
+            title: "🚨 VATTENLARM - {{ state_attr('!input sensor', 'friendly_name') }}"
+            message: "Sensor har upptäckt vattenläcka. Kontrollera omedelbart!"
+            data:
+              push:
+                sound:
+                  name: default
+                  critical: 1
+                  volume: 1
+        - service: browser_mod.popup
+          data:
+            title: "🚨 VATTENLARM"
+            content:
+              type: markdown
+              content: >
+                ## ⛺ Läckage upptäckt!
+                **Plats:** `{{ states('!input sensor') }}`
+            deviceID:
+              - this
+            style:
+              width: 400px
+              background: red
+              color: white
+              font-size: 20px
+        - delay: "00:00:15"
+        - service: browser_mod.close_popup
+        - delay: "00:01:00"
+  - condition: template
+    value_template: "{{ states('!input sensor') == 'unavailable' }}"
+  - service: notify.mobile_app
+    data:
+      target: !input notify_device
+      title: "🚨 SENSOR OTILLGÄNGLIG - {{ state_attr('!input sensor', 'friendly_name') }}"
+      message: "Vattenläckagesensorn vid {{ state_attr('!input sensor', 'friendly_name') }} kan inte nås för tillfället. Kontrollera omedelbart!"
+      data:
+        push:
+          sound:
+            name: default
+            critical: 1
+            volume: 1
+
+mode: single
