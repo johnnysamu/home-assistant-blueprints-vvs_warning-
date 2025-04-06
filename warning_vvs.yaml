@@ -1,53 +1,53 @@
 blueprint:
-  name: Varning för VVS
+  name: Water Leak Warning
   description: >-
-    Varnar varje timme via högtalare och mobilnotis om vatten upptäcks samt
-    skickar notis om sensorn inte kan nås.
+    Warns every hour via speakers and mobile notifications if water is detected
+    and sends a notification if the sensor is unavailable.
   domain: automation
   input:
     sensor:
-      name: Vattenläckagesensor
-      description: Välj vattenläckagesensorn som ska övervakas.
+      name: Water Leak Sensor
+      description: Select the water leak sensor to monitor.
       selector:
         entity:
           domain: binary_sensor
           device_class: moisture
     media_player:
-      name: Högtalare
-      description: Välj högtalaren som ska användas för varningen.
+      name: Speaker
+      description: Select the speaker to use for the warning.
       selector:
         entity:
           domain: media_player
     notify_device:
-      name: Notisenhet
-      description: Välj enheten som ska ta emot mobilnotiser.
+      name: Notification Device
+      description: Select the device to receive mobile notifications.
       selector:
         device:
     repeat_count:
-      name: Upprepningsantal
-      description: Antal gånger varningarna ska upprepas.
+      name: Repeat Count
+      description: Number of times the warnings should be repeated.
       default: 5
       selector:
         number:
           min: 1
           max: 10
-          unit_of_measurement: gånger
+          unit_of_measurement: times
     media_content_id:
       name: Media Content ID
-      description: URL till mediefilen som ska spelas.
+      description: URL to the media file to play.
       default: http://192.168.1.166:8123/local/imperial-alert.mp3
       selector:
         text:
     volume_level:
-      name: Volymnivå
-      description: Volymnivå för varningen.
+      name: Volume Level
+      description: Volume level for the warning.
       default: 0.5
       selector:
         number:
           min: 0
           max: 1
           step: 0.1
-          unit_of_measurement: nivå
+          unit_of_measurement: level
 
 trigger:
   - platform: time_pattern
@@ -80,13 +80,13 @@ action:
         - service: tts.google_translate_say
           data:
             entity_id: !input media_player
-            message: "Varning! Det är vatten upptäckt vid {{ state_attr('!input sensor', 'friendly_name') }}"
-            language: sv
+            message: "Warning! Water detected at {{ state_attr('!input sensor', 'friendly_name') }}"
+            language: en
         - service: notify.mobile_app
           data:
             target: !input notify_device
-            title: "🚨 VATTENLARM - {{ state_attr('!input sensor', 'friendly_name') }}"
-            message: "Sensor har upptäckt vattenläcka. Kontrollera omedelbart!"
+            title: "🚨 WATER LEAK - {{ state_attr('!input sensor', 'friendly_name') }}"
+            message: "Sensor has detected a water leak. Check immediately!"
             data:
               push:
                 sound:
@@ -95,12 +95,12 @@ action:
                   volume: 1
         - service: browser_mod.popup
           data:
-            title: "🚨 VATTENLARM"
+            title: "🚨 WATER LEAK"
             content:
               type: markdown
               content: >
-                ## ⛺ Läckage upptäckt!
-                **Plats:** `{{ states('!input sensor') }}`
+                ## ⛺ Leak detected!
+                **Location:** `{{ states('!input sensor') }}`
             deviceID:
               - this
             style:
@@ -116,8 +116,8 @@ action:
   - service: notify.mobile_app
     data:
       target: !input notify_device
-      title: "🚨 SENSOR OTILLGÄNGLIG - {{ state_attr('!input sensor', 'friendly_name') }}"
-      message: "Vattenläckagesensorn vid {{ state_attr('!input sensor', 'friendly_name') }} kan inte nås för tillfället. Kontrollera omedelbart!"
+      title: "🚨 SENSOR UNAVAILABLE - {{ state_attr('!input sensor', 'friendly_name') }}"
+      message: "The water leak sensor at {{ state_attr('!input sensor', 'friendly_name') }} is currently unavailable. Check immediately!"
       data:
         push:
           sound:
